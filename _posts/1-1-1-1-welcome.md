@@ -1,3 +1,3 @@
-## Welcome
+## DemoJS and friends
 
-Welcome to the jekyll-reveal.js example presentation.
+WebGL through the eyes of a demoscener
