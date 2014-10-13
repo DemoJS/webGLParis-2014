@@ -1,8 +1,8 @@
 # Your presentation title
-title: Jekyll and Reveal.js
+title: DemoJS - WebGL through the eyes of a demoscener
 
 # The Reveal theme
-reveal_theme: moon.css
+reveal_theme: night.css
 
 # The Reveal transition
 reveal_transition: default
