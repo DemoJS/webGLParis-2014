@@ -1,15 +1,11 @@
-## Vertical Slides
+## DemoJS (since 2011)
 
-Or
-
---
-
-Even
+A demoparty where no one has gone before 
 
 --
 
-Vertical
+JS and the web!
 
---
+-- 
 
-Slides
+And since the first edition, we have webgl entries
