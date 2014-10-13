@@ -1,0 +1,13 @@
+{
+	"shaders" : [
+		{
+			"name":"vtest",
+			"params":[
+			{
+				"name":"p2",
+				"value":22
+			}],
+			"filename":"basic.vert"
+		}
+	]
+}

@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Lahti - the Royal Elite Ninjas inc.</title>
+  <meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="jquery-latest.min.js"></script>
+  <script src="three.min.js"></script>
+  <style>
+  body{
+  	overflow:hidden;
+  	font-family:Verdana, Geneva, sans-serif;
+  		background-color:#000; 
+  }
+	#information { 
+		z-index: 1000; 
+  		position:fixed; 
+  		bottom:0px;
+  		width:20%; 
+  		height:200px; 
+  		background-color:#111; 
+  		color:#fff; 
+  		padding: 10px 10px 10px 10px;
+  		overflow-x: auto;
+    	opacity: 0.9;
+  	}
+  	.float {
+		z-index: 1000; 
+  		position:fixed; 
+  		top:0px;
+  		height:96px;
+  		background-color:#fff;
+  		padding: 3px 3px 3px 3px;
+  	}
+  	#timeline {
+		z-index: 1000; 
+  		position:fixed; 
+  		top:96px;
+  		left:0px;
+  		height:64px;
+  		width:304px;
+  		background-color:#eee;
+  		padding: 3px 3px 3px 3px;
+  	}
+  	.fullscreen {
+	    position: absolute;
+	    top: 0;
+	    left: 0;
+	    bottom: 0;
+	    right: 0;
+	}
+  </style>
+</head>
+<body style="margin :  0;">
+
+
+<div id="information">looks like shit<br></div>
+	<div class="float">
+	Time:<br><input id="timerange" type="range" min="0" max="100" value="0" style="top:0px; left:0px; width:300px"/>
+	</div>
+
+	<div id="timeline">pissa</div>
+	<script src="js/shadertool.js"></script>
+  	<script>
+	var fps = 60;
+	var now;
+	var then = 0;
+	var interval = 1000/fps;
+	var delta;
+  	Math.fmod = function (a,b) { return Number((a - (Math.floor(a / b) * b)).toPrecision(8)); };
+  	$('#save').click(function() {
+
+
+  	});
+  	$('#mute').click(function() {
+  		if(DEMO.audio.volume==1) {
+  			DEMO.audio.volume=0;
+  		} else {
+  			DEMO.audio.volume=1;
+  		}
+  	});
+  	$(document).keydown(function(e) {
+    	switch(e.which) {
+    		case 32:
+    			//left
+    			if(DEMO.audio.paused) {
+    				DEMO.audio.play();
+    				$('#information').hide();
+    				$('.float').hide();
+    				$('#timeline').hide();
+    				fps=25;
+    			} else {
+    				DEMO.audio.pause();
+    				$('#information').show();
+    				$('.float').show();
+    				$('#timeline').show();
+    				fps=1;
+
+    			}
+    			break;
+    	}
+  	});
+  	$(document).keypress(function(e) {
+    	switch(e.which) {
+    		case 100:
+    			//right
+    			DEMO.audio.pause();
+    			DEMO.audio.currentTime+=DEMO.bpm / 60.0;
+    			setTimeout(function() {DEMO.audio.play();}, 1000.0 * DEMO.bpm / 60.0);
+    			break;
+    		case 97:
+    			//left
+    			DEMO.audio.pause();
+    			DEMO.audio.currentTime-=DEMO.bpm / 60.0;
+    			setTimeout(function() {DEMO.audio.play();}, 1000.0 * DEMO.bpm / 60.0);
+    			break;
+    	}
+	});
+	$('#timerange').click(function(e) {
+
+	});
+	var DEMO = {
+		renderer : new THREE.WebGLRenderer(),
+		geometries : [],
+		materials : [],
+		meshes : [],
+		WIDTH : window.innerWidth,
+		HEIGHT : window.innerHeight,
+		audio : new Audio(),
+		bpm : 60.0,
+		latency : 0.016,
+		postColorsTimeline: [],
+		canGoON:false,
+		postColors : {
+			h : 100.0,
+			s : 100.0,
+			v : 100.0,
+			blur : 12.0,
+			blurrange : 28.0
+		},
+		scenes : {
+			plainScene : undefined,
+			finalScene : undefined,
+			shaderEffect0Scene : undefined,
+			shaderEffect1Scene : undefined
+		},
+		scenePostTextures : {
+			zBufferedScene : undefined,
+			outlineScene : undefined,
+			plainScene : undefined,
+			finalScene : undefined,
+			shaderEffect0 : undefined,
+			shaderEffect1 : undefined
+		},
+		lights : {
+			ambientLight : undefined,
+			directionalLight : undefined
+		},
+		sceneCameras : {
+			finalCamera : undefined,
+			basicCamera : undefined,
+			shaderEffect0Camera : undefined,
+			shaderEffect1Camera : undefined
+		},
+		textures : [
+		],
+		time : {
+			globalTimeAtStart : undefined,
+			now : undefined,
+			previousFrame : undefined,
+			passedTime : undefined,
+			max: 600
+		},
+		getGeometry : function(nameString) {
+			for(val in this.geometries) {
+				if(this.geometries[val].name === nameString) {
+					return this.geometries[val].geometry;
+				}
+			}
+		},
+		getMaterial : function(nameString) {
+			for(val in this.materials) {
+				if(this.materials[val].name === nameString) {
+					return this.materials[val].material;
+				}
+			}
+		},
+		getMesh : function(nameString) {
+			for(val in this.meshes) {
+				if(this.meshes[val].name === nameString) {
+					return this.meshes[val].mesh;
+				}
+			}
+		},
+		getTexture : function(nameString) {
+			for(val in this.textures) {
+				if(this.textures[val].name === nameString) {
+					return this.textures[val].texture;
+				}
+			}
+		},
+		loadFragmentShaderJSON : function() {
+			$.getJSON( "fragShader.json", function( data ) {
+			  console.log( data );
+			});
+		},
+		reportCount : 0,
+		makeReport : function(report) {
+			if(++this.reportCount>40) { $('#information').html(''); this.reportCount=0; }
+			$('#information').append(this.time.now + 'ms - - ');
+			$('#information').append(report + '<br>');
+		},
+		init : function() {
+			SHADERTOOL.initialize();
+			setInterval(function(){
+				if(SHADERTOOL.waitingToLoad.length === 0 && DEMO.canGoON === false){
+					DEMO.canGoON = true;
+					DEMO.goON();
+					console.log("ny on shaderit valmiina");
+				}
+			},400);
+		},
+		goON : function() {
+			this.scenes.plainScene = new THREE.Scene();
+			this.scenes.finalScene = new THREE.Scene();
+			this.scenes.shaderEffect0Scene = new THREE.Scene();
+			this.scenes.shaderEffect1Scene = new THREE.Scene();
+			this.renderer = new THREE.WebGLRenderer();
+			this.renderer.setSize(this.WIDTH, this.HEIGHT);
+			this.renderer.setClearColor( 0xffffff, 1);
+			document.body.appendChild(this.renderer.domElement);
+			this.renderer.shadowMapEnabled = true;
+			this.renderer.shadowMapSoft = true;
+			this.scenePostTextures.zBufferedScene = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat } );
+			this.scenePostTextures.outlineScene = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat } );
+			this.scenePostTextures.plainScene = new THREE.WebGLRenderTarget( window.innerWidth*2.0, window.innerHeight*2.0, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat } );
+			this.scenePostTextures.finalScene = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat } );
+			this.scenePostTextures.shaderEffect0 = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat } );
+			this.scenePostTextures.shaderEffect1 = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat } );
+			this.sceneCameras.basicCamera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+			this.sceneCameras.finalCamera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+			this.sceneCameras.shaderEffect0Camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+			this.sceneCameras.shaderEffect1Camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+			this.sceneCameras.basicCamera.position.z = 5.8;
+
+			this.sceneCameras.finalCamera.position.x = 0;
+			this.sceneCameras.finalCamera.position.y = 0;
+			this.sceneCameras.finalCamera.position.z = 1;
+
+			this.sceneCameras.shaderEffect0Camera.position.x = 0;
+			this.sceneCameras.shaderEffect0Camera.position.y = 0;
+			this.sceneCameras.shaderEffect0Camera.position.z = 1;
+
+			this.sceneCameras.shaderEffect1Camera.position.x = 0;
+			this.sceneCameras.shaderEffect1Camera.position.y = 0;
+			this.sceneCameras.shaderEffect1Camera.position.z = 1;
+
+
+			this.geometries.push({ name:'box', geometry:new THREE.BoxGeometry(1,1,1)});
+			this.geometries.push({ name:'kakka', geometry:new THREE.BoxGeometry(32,1,32)});
+
+			this.materials.push({ name:'greenbasic', material: new THREE.MeshPhongMaterial({
+		        // light
+		        specular: 0xffffff,
+		        // intermediate
+		        color: 0x00dddd,
+		        // dark
+		        emissive: 0x5f5f5f,
+		        shininess: 44,
+		        shading: THREE.FlatShading 
+		      })});
+
+			this.materials.push({ name:'otherbasic', material: new THREE.MeshPhongMaterial( { ambient: 0x230303, color: 0xdddddd, specular: 0x009900, shininess: 30, shading: THREE.FlatShading } )});
+
+			this.meshes.push({name:'box1', mesh:new THREE.Mesh(this.getGeometry('box'), this.getMaterial('greenbasic'))});
+			this.meshes.push({name:'box2', mesh:new THREE.Mesh(this.getGeometry('box'), this.getMaterial('otherbasic'))});
+
+			this.meshes.push({name:'supperkakka', mesh:new THREE.Mesh(this.getGeometry('kakka'), this.getMaterial('greenbasic'))});
+			var testausta = this.getMesh('supperkakka');
+			testausta.castShadow = true;
+			testausta.receiveShadow = true;
+			testausta.position.y=-5;	
+			this.scenes.plainScene.add(testausta);
+			for(var i=0; i<133; i++) {
+				//var boksi=this.getMesh('box1').clone();
+				if((i&1)!=0) {
+					var boksi=this.getMesh('box1').clone();
+				} else {
+					var boksi=this.getMesh('box2').clone();
+				}
+				boksi.castShadow = true;
+				boksi.receiveShadow = true;
+				boksi.position.x=Math.random()*12-6;
+				boksi.position.y=Math.random()*12-3;	
+				boksi.position.z=Math.random()*12-6;
+				boksi.rotation.x+=Math.random()*180.0;
+				boksi.rotation.y+=Math.random()*180.0;
+				this.scenes.plainScene.add(boksi);
+			}
+
+
+
+
+			var spotLight = new THREE.SpotLight( 0xffffff, 0.7 );
+			spotLight.position.set( 10, 20, 10 );
+
+			spotLight.castShadow = true;
+
+			spotLight.shadowMapWidth = 4096;
+			spotLight.shadowMapHeight = 4096;
+
+			spotLight.shadowCameraNear = 6;
+			spotLight.shadowCameraFar = 4000;
+			spotLight.shadowCameraFov = 40;
+			this.scenes.plainScene.add( spotLight );
+
+	      	var regTexture = new THREE.WebGLRenderTarget(
+	      												window.innerWidth, 
+	      												window.innerHeight, 
+	      												{
+	      													minFilter: THREE.LinearFilter,
+	      													magFilter: THREE.NearestFilter,
+	      													format: THREE.RGBFormat
+	      												}
+	      												);
+
+        		DEMO.textures.push({ name:'regular', texture: THREE.ImageUtils.loadTexture('t.jpg')});
+        		
+				DEMO.getTexture('regular').wrapS = THREE.RepeatWrapping;
+				DEMO.getTexture('regular').wrapT = THREE.RepeatWrapping;
+				DEMO.getTexture('regular').magFilter = THREE.LinearFilter;
+				DEMO.getTexture('regular').minFilter = THREE.LinearFilter;
+
+        		DEMO.textures.push({ name:'regular2', texture: THREE.ImageUtils.loadTexture('REN.png')});
+				DEMO.getTexture('regular2').wrapS = THREE.RepeatWrapping;
+				DEMO.getTexture('regular2').wrapT = THREE.RepeatWrapping;
+				DEMO.getTexture('regular2').magFilter = THREE.LinearFilter;
+				DEMO.getTexture('regular2').minFilter = THREE.LinearFilter;
+	      	this.audio = new Audio('demoproto.ogg');
+	      	setTimeout(function() {DEMO.audio.play();},4000);
+			this.time.globalTimeAtStart = new Date().getTime();
+			this.time.now = 0;
+			this.time.previousFrame = 0;
+			this.time.passedTime = 0;
+			var playing=false;
+			/*a.addEventListener('canplaythrough', function() { 
+			   	playing=true;
+			}, false);			*/
+			//this.GUI.add({message:DEMO.time.now+'ms'}, 'message');
+			setTimeout(function() {
+				var plane = new THREE.PlaneGeometry( window.innerWidth, window.innerHeight );
+				/*
+				DEMO.renderer.render( 	DEMO.scenes.plainScene, 
+										DEMO.sceneCameras.basicCamera, 
+										DEMO.scenePostTextures.plainScene, 
+										true );*/
+
+				DEMO.renderer.render( 	DEMO.scenes.shaderEffect0Scene, 
+										DEMO.sceneCameras.shaderEffect0Camera, 
+										DEMO.scenePostTextures.shaderEffect0, 
+										true );
+
+				DEMO.renderer.render( 	DEMO.scenes.shaderEffect1Scene, 
+										DEMO.sceneCameras.shaderEffect1Camera, 
+										DEMO.scenePostTextures.shaderEffect1, 
+										true );
+				var shader = SHADERTOOL.getShaderSetup( 'vtest', 'video', DEMO.scenePostTextures.plainScene, DEMO.scenePostTextures.shaderEffect0);
+
+				DEMO.materials.push({ name:'videoShader', material: shader});
+
+				var quad = new THREE.Mesh( plane, DEMO.getMaterial('videoShader') );
+
+				DEMO.meshes.push({name:'quad', mesh:quad});
+
+				var shader2 = SHADERTOOL.getShaderSetup( 'vtest', 'fire', DEMO.getTexture('regular'));
+				DEMO.materials.push({ name:'fireShader', material: shader2});
+				var quad2 = new THREE.Mesh( new THREE.PlaneGeometry( window.innerWidth, window.innerHeight ), DEMO.getMaterial('fireShader') );
+				DEMO.meshes.push({name:'quad2', mesh:quad2});
+
+				var shader3 = SHADERTOOL.getShaderSetup( 'vtest', 'basic' );
+				DEMO.materials.push({ name:'basicShader', material: shader3});
+				var quad3 = new THREE.Mesh( new THREE.PlaneGeometry( window.innerWidth, window.innerHeight ), DEMO.getMaterial('basicShader') );
+				DEMO.meshes.push({name:'quad3', mesh:quad3});
+
+
+
+				var nquad = DEMO.getMesh('quad');
+				DEMO.scenes.finalScene.add(nquad);
+				DEMO.scenes.shaderEffect0Scene.add(DEMO.getMesh('quad2'));
+				DEMO.scenes.shaderEffect1Scene.add(DEMO.getMesh('quad3'));
+				setTimeout(function() {DEMO.render();},40);
+			},400);
+		},
+		render : function() {
+			requestAnimationFrame(DEMO.render);
+		    now = Date.now();
+		    delta = now - then;
+		    if (delta > interval) {
+			DEMO.time.now = DEMO.audio.currentTime * DEMO.bpm/60.0;
+			DEMO.time.passedTime = DEMO.time.now - DEMO.time.previousFrame;
+			$('#timerange').val(DEMO.time.now);
+			DEMO.time.max = DEMO.audio.duration * DEMO.bpm/60.0;
+			$('#timerange').val = DEMO.audio.duration * DEMO.bpm/60.0;
+			$("#timerange").attr({"max" : DEMO.audio.duration  * DEMO.bpm/60.0});
+			DEMO.getMaterial('videoShader').uniforms.iGlobalTime.value = DEMO.time.now;
+			DEMO.getMaterial('videoShader').uniforms.h.value = DEMO.postColors.h;
+			DEMO.getMaterial('videoShader').uniforms.s.value = DEMO.postColors.s;
+			DEMO.getMaterial('videoShader').uniforms.v.value = DEMO.postColors.v;
+			DEMO.getMaterial('videoShader').uniforms.blur.value = DEMO.postColors.blur;
+			DEMO.getMaterial('videoShader').uniforms.blurrange.value = DEMO.postColors.blurrange;
+
+			DEMO.getMaterial('fireShader').uniforms.iGlobalTime.value = DEMO.time.now;
+			DEMO.getMaterial('basicShader').uniforms.iGlobalTime.value = DEMO.time.now;
+
+			DEMO.sceneCameras.basicCamera.rotation.z=3.141+Math.cos(-DEMO.time.now*0.153)*.4;
+			DEMO.sceneCameras.basicCamera.rotation.x=Math.cos(-DEMO.time.now*0.2)*1.0;
+			DEMO.sceneCameras.basicCamera.position.x=Math.sin(DEMO.time.now*0.01)*4.0;
+			DEMO.sceneCameras.basicCamera.position.z=4.0+Math.sin(DEMO.time.now*0.04574)*7.0;
+			/*
+			DEMO.renderer.render( 	DEMO.scenes.plainScene, 
+									DEMO.sceneCameras.basicCamera, 
+									DEMO.scenePostTextures.plainScene, 
+									true );
+			*/					
+			DEMO.renderer.render( 	DEMO.scenes.shaderEffect0Scene, 
+									DEMO.sceneCameras.shaderEffect0Camera, 
+									DEMO.scenePostTextures.shaderEffect0, 
+									true );
+			/*	
+			DEMO.renderer.render( 	DEMO.scenes.shaderEffect1Scene, 
+									DEMO.sceneCameras.shaderEffect1Camera, 
+									DEMO.scenePostTextures.shaderEffect1, 
+									true );*/
+			DEMO.getMaterial('fireShader').uniforms.iChannel0.value = DEMO.getTexture('regular');
+			DEMO.getMaterial('videoShader').uniforms.iChannel1.value = DEMO.scenePostTextures.shaderEffect0;
+			DEMO.getMaterial('videoShader').uniforms.iChannel0.value = DEMO.getTexture('regular2')
+			DEMO.renderer.render( DEMO.scenes.finalScene, DEMO.sceneCameras.finalCamera);
+			DEMO.time.previousFrame = DEMO.time.now;
+        	then = now - (delta % interval);
+			}
+		}
+	};	
+  	$(function() {
+    $('#information').hide();
+    $('.float').hide();
+    $('#timeline').hide();
+		DEMO.init();
+	});
+  </script>
+</body>
+</html>
